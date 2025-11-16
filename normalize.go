@@ -3,6 +3,7 @@ package gotoon
 import (
 	"math"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -77,7 +78,29 @@ func normalizeValue(value interface{}) interface{} {
 					// Use json tag if available, otherwise use field name
 					name := field.Name
 					if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
-						name = tag
+						// Parse the tag to extract just the field name (before the first comma)
+						// This handles modifiers like ",omitempty", ",inline", etc.
+						if commaIdx := strings.Index(tag, ","); commaIdx != -1 {
+							name = tag[:commaIdx]
+						} else {
+							name = tag
+						}
+						// Handle empty name (like ",inline") - skip this field and inline its contents
+						if name == "" {
+							// For inline fields, merge their contents into parent object
+							if fieldValue.Kind() == reflect.Struct ||
+								(fieldValue.Kind() == reflect.Ptr && !fieldValue.IsNil() && fieldValue.Elem().Kind() == reflect.Struct) {
+								inlined := normalizeValue(fieldValue.Interface())
+								if inlinedMap, ok := inlined.(map[string]interface{}); ok {
+									for k, v := range inlinedMap {
+										obj[k] = v
+									}
+								}
+								continue
+							}
+							// If not a struct, use the original field name
+							name = field.Name
+						}
 					}
 					obj[name] = normalizeValue(fieldValue.Interface())
 				}
