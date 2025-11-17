@@ -102,6 +102,10 @@ func normalizeValue(value interface{}) interface{} {
 							name = field.Name
 						}
 					}
+					// Skip fields that start with underscore (private/internal fields)
+					if strings.HasPrefix(name, "_") {
+						continue
+					}
 					obj[name] = normalizeValue(fieldValue.Interface())
 				}
 			}
